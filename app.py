@@ -184,12 +184,12 @@ def render_vocabulary_builder(vocabulary: List[VocabularyWord]):
             if word.example:
                 st.markdown(f"**Example:** {word.example}")
             
-            # Practice buttons
+            # Practice buttons - modified to not use rerun()
             if st.button(f"Use '{word.english}' in email", key=f"use_{word.english}"):
-                if 'user_response' in st.session_state:
-                    st.session_state.user_response += f" {word.english}"
-                st.experimental_rerun()
-
+                if 'user_response' not in st.session_state:
+                    st.session_state.user_response = ""
+                st.session_state.user_response += f" {word.english}"
+                # Instead of rerun, we'll let the text area update naturally
 def render_email_practice(scenario: EmailScenario, vocabulary: List[VocabularyWord]):
     st.subheader("📝 Email Practice")
     st.markdown(f"**Scenario:** {scenario.scenario}")
