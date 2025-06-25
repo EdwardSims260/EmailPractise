@@ -1,0 +1,4 @@
+# Create a .gitignore file to exclude sensitive files
+echo ".env" >> .gitignore
+echo "__pycache__/" >> .gitignore
+echo "*.pyc" >> .gitignore
