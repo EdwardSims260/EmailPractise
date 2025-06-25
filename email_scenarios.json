@@ -1,0 +1,20 @@
+[
+    {
+        "scenario": "Follow-up after meeting",
+        "prompt": "Write a polite follow-up email after a business meeting, summarizing key points and next steps.",
+        "context": "You had a meeting with a potential client yesterday to discuss a project. They seemed interested but asked for more details.",
+        "difficulty": "Intermediate"
+    },
+    {
+        "scenario": "Complaint about service",
+        "prompt": "Write a professional complaint email about poor service you received.",
+        "context": "You ordered office supplies that arrived damaged and incomplete. The supplier has not responded to your previous call.",
+        "difficulty": "Beginner"
+    },
+    {
+        "scenario": "Job application follow-up",
+        "prompt": "Write a follow-up email after submitting a job application.",
+        "context": "You applied for a marketing position two weeks ago and haven't heard back. You want to express continued interest.",
+        "difficulty": "Advanced"
+    }
+]
