@@ -267,37 +267,37 @@ Best regards,
             # Download button for analysis
             EmailPractice._generate_analysis_image(response, scenario)
 
-   @staticmethod
-   def _highlight_text(text: str, scenario: EmailScenario) -> str:
-    """Highlight different parts of the email text with color coding."""
-    # Define color coding for different issues
-    highlight_rules = [
-        (r"\b(dear)\b", "#4CAF50", "Greeting"),  # Green for good
-        (r"\b(regards|sincerely|best|cheers|cordially)\b", "#4CAF50", "Closing"),
-        (r"\b(please|thank you|appreciate|grateful)\b", "#4CAF50", "Polite"),
-        (r"\b(hey|hi|what's up|lol)\b", "#FF5252", "Informal"),  # Red for bad
-        (r"\b(just|maybe|perhaps|a bit)\b", "#FF9800", "Weak phrase"),  # Orange
-        (r"\b(utilize|endeavor|fabricate|elucidate)\b", "#9C27B0", "Complex word"),
-        (r"\b(don't|can't|won't|isn't)\b", "#2196F3", "Contraction"),
-        (r"\b(I think|I believe|in my opinion)\b", "#FFC107", "Hesitation")
-    ]
-    
-    # Add scenario-specific keywords
-    for word in scenario.prompt.lower().split() + scenario.context.lower().split():
-        if len(word) > 4:  # Avoid short words
-            highlight_rules.append((fr"\b({word})\b", "#00BCD4", "Scenario keyword"))
-    
-    # Apply highlighting
-    highlighted = text
-    for pattern, color, title in highlight_rules:
-        highlighted = re.sub(
-            pattern, 
-            f'<span style="background-color: {color}; border-radius: 3px; padding: 0 2px;" title="{title}">\\1</span>', 
-            highlighted, 
-            flags=re.IGNORECASE
-        )
-    
-    return f'<div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">{highlighted}</div>'
+    @staticmethod
+    def _highlight_text(text: str, scenario: EmailScenario) -> str:
+        """Highlight different parts of the email text with color coding."""
+        # Define color coding for different issues
+        highlight_rules = [
+            (r"\b(dear)\b", "#4CAF50", "Greeting"),  # Green for good
+            (r"\b(regards|sincerely|best|cheers|cordially)\b", "#4CAF50", "Closing"),
+            (r"\b(please|thank you|appreciate|grateful)\b", "#4CAF50", "Polite"),
+            (r"\b(hey|hi|what's up|lol)\b", "#FF5252", "Informal"),  # Red for bad
+            (r"\b(just|maybe|perhaps|a bit)\b", "#FF9800", "Weak phrase"),  # Orange
+            (r"\b(utilize|endeavor|fabricate|elucidate)\b", "#9C27B0", "Complex word"),
+            (r"\b(don't|can't|won't|isn't)\b", "#2196F3", "Contraction"),
+            (r"\b(I think|I believe|in my opinion)\b", "#FFC107", "Hesitation")
+        ]
+        
+        # Add scenario-specific keywords
+        for word in scenario.prompt.lower().split() + scenario.context.lower().split():
+            if len(word) > 4:  # Avoid short words
+                highlight_rules.append((fr"\b({word})\b", "#00BCD4", "Scenario keyword"))
+        
+        # Apply highlighting
+        highlighted = text
+        for pattern, color, title in highlight_rules:
+            highlighted = re.sub(
+                pattern, 
+                f'<span style="background-color: {color}; border-radius: 3px; padding: 0 2px;" title="{title}">\\1</span>', 
+                highlighted, 
+                flags=re.IGNORECASE
+            )
+        
+        return f'<div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">{highlighted}</div>'
 
     @staticmethod
     def _generate_analysis_image(text: str, scenario: EmailScenario):
@@ -354,38 +354,6 @@ Best regards,
             file_name=f"email_analysis_{scenario.scenario[:20]}.png",
             mime="image/png"
         )
-
-class VocabularyManager:
-    @staticmethod
-    def render(vocabulary: List[VocabularyWord]):
-        st.subheader("📚 My Vocabulary")
-        
-        search_term = st.text_input("🔍 Search vocabulary")
-        filtered = [
-            w for w in vocabulary 
-            if not search_term or 
-            search_term.lower() in w.english.lower() or 
-            search_term.lower() in w.italian.lower()
-        ]
-        
-        if not filtered:
-            st.info("No words found. Add some using the Word Explorer!")
-            return
-        
-        for word in filtered:
-            with st.expander(f"🌐 {word.english.capitalize()} → {word.italian.capitalize()}"):
-                st.caption(f"Definition: {word.definition}")
-                if word.example:
-                    st.caption(f"Example: {word.example}")
-                
-                if st.button(
-                    f"Use '{word.english}'", 
-                    key=f"use_{word.english}",
-                    help="Add to email"
-                ):
-                    if "email_response" in st.session_state:
-                        st.session_state.email_response += f" {word.english}"
-
 # --- Main App ---
 def main():
     # Set app title and background
