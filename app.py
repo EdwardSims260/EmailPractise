@@ -268,7 +268,7 @@ Best regards,
             EmailPractice._generate_analysis_image(response, scenario)
 
    @staticmethod
-def _highlight_text(text: str, scenario: EmailScenario) -> str:
+   def _highlight_text(text: str, scenario: EmailScenario) -> str:
     """Highlight different parts of the email text with color coding."""
     # Define color coding for different issues
     highlight_rules = [
