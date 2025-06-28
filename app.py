@@ -11,16 +11,16 @@ import base64
 
 # --- Configuration ---
 st.set_page_config(
-    page_title="✉️ Learn With Edward",
-    page_icon="✉️",
+    page_title="EDWARD.png Learn With Edward",
+    page_icon="EDWARD.png",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
 # Add background image with logo
-def add_bg_from_local(image_file):
-    with open(image_file, "rb") as image_file:
-        encoded_string = base64.b64encode(image_file.read()).decode()
+def add_bg_from_local(EDWARD.png):
+    with open(EDWARD.png, "rb") as image_file:
+        encoded_string = base64.b64encode(EDWARD.png.read()).decode()
     
     st.markdown(
         f"""
@@ -393,7 +393,7 @@ def main():
     
     # Add background logo (replace with your actual logo path)
     try:
-        add_bg_from_local("")  # Replace with your logo path
+        add_bg_from_local("EDWARD.png")  # Replace with your logo path
     except:
         st.warning("Logo image not found - running without background")
     
