@@ -17,10 +17,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add background image with logo
-def add_bg_from_local(EDWARD.png):
-    with open(EDWARD.png, "rb") as image_file:
-        encoded_string = base64.b64encode(EDWARD.png.read()).decode()
+def add_bg_from_local(image_file): 
+    with open(image_file, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
     
     st.markdown(
         f"""
