@@ -5,14 +5,38 @@ from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from pathlib import Path
 import time
+from PIL import Image, ImageDraw, ImageFont
+import io
+import base64
 
 # --- Configuration ---
 st.set_page_config(
-    page_title="✉️ Email Master",
+    page_title="✉️ Learn With Edward",
     page_icon="✉️",
     layout="centered",
     initial_sidebar_state="expanded"
 )
+
+# Add background image with logo
+def add_bg_from_local(image_file):
+    with open(image_file, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
+    
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url(data:image/png;base64,{encoded_string});
+            background-size: 300px;
+            background-repeat: no-repeat;
+            background-position: right bottom;
+            background-attachment: fixed;
+            background-opacity: 0.1;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- Data Models ---
 @dataclass
@@ -39,6 +63,18 @@ class DataManager:
                 prompt="Write a polite follow-up email after a job interview",
                 context="You had an interview 5 days ago and want to check on the status",
                 difficulty="Medium"
+            ),
+            EmailScenario(
+                scenario="Client Complaint Response",
+                prompt="Respond professionally to a dissatisfied client",
+                context="A client is unhappy with delayed delivery of your service",
+                difficulty="Hard"
+            ),
+            EmailScenario(
+                scenario="Meeting Request",
+                prompt="Request a meeting with a potential business partner",
+                context="You want to discuss a possible collaboration next week",
+                difficulty="Easy"
             )
         ]
         
@@ -104,7 +140,7 @@ class EmailPractice:
         EmailPractice._render_action_buttons(response)
         
         # Email analysis
-        EmailPractice._render_email_analysis(response)
+        EmailPractice._render_email_analysis(response, scenario)
 
     @staticmethod
     def _render_vocabulary_assistant(scenario: EmailScenario, vocabulary: List[VocabularyWord]):
@@ -156,27 +192,167 @@ Best regards,
                 st.rerun()
 
     @staticmethod
-    def _render_email_analysis(response: str):
+    def _render_email_analysis(response: str, scenario: EmailScenario):
         if not response.strip():
             return
             
-        with st.expander("📊 Email Analysis", expanded=True):
+        with st.expander("📊 Detailed Email Analysis", expanded=True):
+            # Basic metrics
             word_count = len(response.split())
             sentence_count = len([s for s in response.split('.') if len(s.strip()) > 0])
+            paragraph_count = len([p for p in response.split('\n\n') if len(p.strip()) > 0])
             
-            st.metric("Word Count", word_count)
-            st.metric("Sentences", sentence_count)
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Word Count", word_count)
+            col2.metric("Sentences", sentence_count)
+            col3.metric("Paragraphs", paragraph_count)
             
-            # Structure check
+            # Structure analysis
+            st.subheader("Structure Analysis")
             structure = {
-                "Greeting": "dear" in response.lower(),
-                "Closing": any(w in response.lower() for w in ["regards", "sincerely", "best", "cheers"]),
-                "Polite": any(w in response.lower() for w in ["please", "thank you", "appreciate"])
+                "Greeting": ("dear" in response.lower(), "Should include a proper greeting (e.g., 'Dear [Name]')"),
+                "Closing": (any(w in response.lower() for w in ["regards", "sincerely", "best", "cheers", "cordially"]), 
+                          "Should include a proper closing (e.g., 'Best regards')"),
+                "Polite Language": (any(w in response.lower() for w in ["please", "thank you", "appreciate", "grateful"]), 
+                                  "Should include polite phrases"),
+                "Clear Purpose": (any(w in response.lower() for w in ["purpose", "reason", "writing", "contacting"] + scenario.prompt.lower().split()),
+                                "Should clearly state the purpose of the email"),
+                "Professional Tone": (not any(w in response.lower() for w in ["hey", "hi", "what's up", "lol"]),
+                                   "Should maintain professional tone")
             }
             
-            st.caption("Structure Check:")
-            for element, present in structure.items():
-                st.write(f"{'✅' if present else '❌'} {element}")
+            for element, (present, feedback) in structure.items():
+                if present:
+                    st.success(f"✅ {element}: {feedback}")
+                else:
+                    st.error(f"❌ {element}: {feedback}")
+            
+            # Grammar and style suggestions
+            st.subheader("Language & Style Suggestions")
+            
+            # Check for common mistakes
+            common_mistakes = {
+                "Passive voice": ["was done", "were given", "is being", "has been"],
+                "Long sentences": [s for s in response.split('.') if len(s.split()) > 25],
+                "Complex words": ["utilize", "endeavor", "fabricate", "elucidate"],
+                "Contractions": ["don't", "can't", "won't", "isn't"],
+                "Weak phrases": ["I think", "just", "maybe", "perhaps", "a bit"]
+            }
+            
+            for mistake_type, indicators in common_mistakes.items():
+                found = False
+                details = []
+                
+                if mistake_type == "Long sentences":
+                    for i, sentence in enumerate(indicators):
+                        if sentence.strip():
+                            details.append(f"Sentence {i+1}: '{sentence.strip()[:50]}...'")
+                    found = bool(details)
+                else:
+                    for phrase in indicators:
+                        if phrase.lower() in response.lower():
+                            found = True
+                            details.append(f"Found: '{phrase}'")
+                
+                if found:
+                    st.warning(f"⚠️ {mistake_type}:")
+                    for detail in details:
+                        st.text(detail)
+            
+            # Generate highlighted text with mistakes
+            st.subheader("Highlighted Text Analysis")
+            highlighted_html = EmailPractice._highlight_text(response, scenario)
+            st.markdown(highlighted_html, unsafe_allow_html=True)
+            
+            # Download button for analysis
+            EmailPractice._generate_analysis_image(response, scenario)
+
+    @staticmethod
+    def _highlight_text(text: str, scenario: EmailScenario) -> str:
+        # Define color coding for different issues
+        highlight_rules = [
+            (r"\b(dear)\b", "#4CAF50", "Greeting"),  # Green for good
+            (r"\b(regards|sincerely|best|cheers|cordially)\b", "#4CAF50", "Closing"),
+            (r"\b(please|thank you|appreciate|grateful)\b", "#4CAF50", "Polite"),
+            (r"\b(hey|hi|what's up|lol)\b", "#FF5252", "Informal"),  # Red for bad
+            (r"\b(just|maybe|perhaps|a bit)\b", "#FF9800", "Weak phrase"),  # Orange
+            (r"\b(utilize|endeavor|fabricate|elucidate)\b", "#9C27B0", "Complex word"),  # Purple
+            (r"\b(don't|can't|won't|isn't)\b", "#2196F3", "Contraction"),  # Blue
+            (r"\b(I think|I believe|in my opinion)\b", "#FFC107", "Hesitation")  # Yellow
+        ]
+        
+        # Add scenario-specific keywords
+        for word in scenario.prompt.lower().split() + scenario.context.lower().split():
+            if len(word) > 4:  # Avoid short words
+                highlight_rules.append((fr"\b({word})\b", "#00BCD4", "Scenario keyword"))
+        
+        # Apply highlighting
+        highlighted = text
+        for pattern, color, title in highlight_rules:
+            highlighted = re.sub(
+                pattern, 
+                f'<span style="background-color: {color}; border-radius: 3px; padding: 0 2px;" title="{title}">\\1</span>', 
+                highlighted, 
+                flags=re.IGNORECASE
+            )
+        
+        return f'<div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">{highlighted}</div>'
+
+    @staticmethod
+    def _generate_analysis_image(text: str, scenario: EmailScenario):
+        # Create an image with analysis
+        img = Image.new('RGB', (800, 1200), color=(255, 255, 255))
+        d = ImageDraw.Draw(img)
+        
+        # Use a default font (size may vary by system)
+        try:
+            font = ImageFont.truetype("arial.ttf", 14)
+            title_font = ImageFont.truetype("arial.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+            title_font = ImageFont.load_default()
+        
+        # Add title
+        d.text((50, 50), f"Email Analysis: {scenario.scenario}", font=title_font, fill=(0, 0, 0))
+        
+        # Add watermark
+        d.text((600, 1150), "www.learnwithedward.com", font=font, fill=(200, 200, 200))
+        
+        # Add analysis content
+        y_position = 100
+        analysis_lines = [
+            "Email Content:",
+            text,
+            "",
+            "Analysis Summary:",
+            f"- Scenario: {scenario.scenario}",
+            f"- Word Count: {len(text.split())}",
+            f"- Sentences: {len([s for s in text.split('.') if len(s.strip()) > 0])}",
+            "",
+            "Key Recommendations:",
+            "1. Use clear, concise language",
+            "2. Maintain professional tone",
+            "3. State purpose early in email",
+            "4. Include polite closing",
+            "5. Avoid contractions in formal emails"
+        ]
+        
+        for line in analysis_lines:
+            d.text((50, y_position), line, font=font, fill=(0, 0, 0))
+            y_position += 30
+        
+        # Save to bytes
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        # Download button
+        st.download_button(
+            label="📥 Download Analysis Report",
+            data=img_byte_arr,
+            file_name=f"email_analysis_{scenario.scenario[:20]}.png",
+            mime="image/png"
+        )
 
 class VocabularyManager:
     @staticmethod
@@ -211,8 +387,15 @@ class VocabularyManager:
 
 # --- Main App ---
 def main():
-    st.title("✉️ Email Master")
+    # Set app title and background
+    st.title("✉️ Learn With Edward")
     st.caption("Practice business emails • Build vocabulary • Improve communication")
+    
+    # Add background logo (replace with your actual logo path)
+    try:
+        add_bg_from_local("")  # Replace with your logo path
+    except:
+        st.warning("Logo image not found - running without background")
     
     # Load data
     scenarios = DataManager.load_scenarios()
@@ -221,8 +404,15 @@ def main():
     # Navigation
     menu = st.sidebar.radio(
         "Menu",
-        ["📧 Email Practice", "📚 Vocabulary Builder"]
+        ["📧 Email Practice", "📚 Vocabulary Builder"],
+        horizontal=True
     )
+    
+    # Add sidebar branding
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Learn With Edward")
+    st.sidebar.markdown("Improve your business communication skills")
+    st.sidebar.markdown("[www.learnwithedward.com](https://www.learnwithedward.com)")
     
     # Page routing
     if menu == "📧 Email Practice":
