@@ -75,6 +75,30 @@ class DataManager:
                 prompt="Request a meeting with a potential business partner",
                 context="You want to discuss a possible collaboration next week",
                 difficulty="Easy"
+            ),
+            EmailScenario(
+                scenario="Project Update",
+                prompt="Write an update email about an ongoing project",
+                context="You need to inform stakeholders about project progress and next steps",
+                difficulty="Medium"
+            ),
+            EmailScenario(
+                scenario="Networking Email",
+                prompt="Write an email to connect with a professional in your field",
+                context="You met this person briefly at a conference and want to follow up",
+                difficulty="Medium"
+            ),
+            EmailScenario(
+                scenario="Apology Email",
+                prompt="Write an email apologizing for a mistake",
+                context="Your company made an error in a client's order",
+                difficulty="Hard"
+            ),
+            EmailScenario(
+                scenario="Thank You Email",
+                prompt="Write an email expressing gratitude",
+                context="A colleague helped you with an important project",
+                difficulty="Easy"
             )
         ]
         
@@ -89,14 +113,43 @@ class DataManager:
 
     @staticmethod
     def load_vocabulary() -> List[VocabularyWord]:
+        default_vocabulary = [
+            VocabularyWord(english="deadline", italian="scadenza"),
+            VocabularyWord(english="stakeholder", italian="portatore di interessi"),
+            VocabularyWord(english="milestone", italian="pietra miliare"),
+            VocabularyWord(english="deliverable", italian="risultato consegnabile"),
+            VocabularyWord(english="benchmark", italian="punto di riferimento"),
+            VocabularyWord(english="feedback", italian="riscontro"),
+            VocabularyWord(english="follow-up", italian="follow-up"),
+            VocabularyWord(english="brainstorming", italian="brainstorming"),
+            VocabularyWord(english="workshop", italian="workshop"),
+            VocabularyWord(english="quarterly", italian="trimestrale"),
+            VocabularyWord(english="sustainable", italian="sostenibile"),
+            VocabularyWord(english="streamline", italian="razionalizzare"),
+            VocabularyWord(english="leverage", italian="sfruttare"),
+            VocabularyWord(english="synergy", italian="sinergia"),
+            VocabularyWord(english="bandwidth", italian="capacità"),
+            VocabularyWord(english="actionable", italian="attuabile"),
+            VocabularyWord(english="roadmap", italian="roadmap"),
+            VocabularyWord(english="onboarding", italian="onboarding"),
+            VocabularyWord(english="touchpoint", italian="punto di contatto"),
+            VocabularyWord(english="upskill", italian="migliorare le competenze")
+        ]
+        
         try:
             vocab_path = Path(__file__).parent / "data" / "vocabulary.json"
             if vocab_path.exists():
                 with open(vocab_path, "r", encoding="utf-8") as f:
-                    return [VocabularyWord(**v) for v in json.load(f)]
-            return []
+                    loaded_vocab = [VocabularyWord(**v) for v in json.load(f)]
+                    # Combine with default vocabulary, avoiding duplicates
+                    existing_words = {v.english.lower() for v in loaded_vocab}
+                    for word in default_vocabulary:
+                        if word.english.lower() not in existing_words:
+                            loaded_vocab.append(word)
+                    return loaded_vocab
+            return default_vocabulary
         except Exception:
-            return []
+            return default_vocabulary
 
     @staticmethod
     def save_vocabulary(word: VocabularyWord) -> bool:
@@ -261,6 +314,19 @@ Best regards,
             
             # Generate highlighted text with mistakes
             st.subheader("Highlighted Text Analysis")
+            
+            # Add color legend
+            st.markdown("""
+            **Color Legend:**
+            - <span style="background-color: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;">Green</span> = Good elements (greetings, closings, polite phrases)
+            - <span style="background-color: #FF5252; color: white; padding: 2px 5px; border-radius: 3px;">Red</span> = Informal language to avoid
+            - <span style="background-color: #FF9800; color: white; padding: 2px 5px; border-radius: 3px;">Orange</span> = Weak phrases that could be stronger
+            - <span style="background-color: #9C27B0; color: white; padding: 2px 5px; border-radius: 3px;">Purple</span> = Complex words that could be simplified
+            - <span style="background-color: #2196F3; color: white; padding: 2px 5px; border-radius: 3px;">Blue</span> = Contractions (avoid in formal emails)
+            - <span style="background-color: #FFC107; color: black; padding: 2px 5px; border-radius: 3px;">Yellow</span> = Hesitant language
+            - <span style="background-color: #00BCD4; color: white; padding: 2px 5px; border-radius: 3px;">Teal</span> = Scenario keywords
+            """, unsafe_allow_html=True)
+            
             highlighted_html = EmailPractice._highlight_text(response, scenario)
             st.markdown(highlighted_html, unsafe_allow_html=True)
             
@@ -354,6 +420,53 @@ Best regards,
             file_name=f"email_analysis_{scenario.scenario[:20]}.png",
             mime="image/png"
         )
+
+class VocabularyManager:
+    @staticmethod
+    def render(vocabulary: List[VocabularyWord]):
+        st.subheader("📚 Business Vocabulary List")
+        st.markdown("Common business English terms with Italian translations")
+        
+        # Add search functionality
+        search_term = st.text_input("Search vocabulary", "")
+        
+        # Filter vocabulary based on search
+        filtered_vocab = vocabulary
+        if search_term:
+            filtered_vocab = [
+                word for word in vocabulary
+                if search_term.lower() in word.english.lower() or 
+                   search_term.lower() in word.italian.lower()
+            ]
+        
+        # Display vocabulary in a table
+        if filtered_vocab:
+            st.table(
+                [{"English": word.english, "Italian": word.italian} 
+                 for word in sorted(filtered_vocab, key=lambda x: x.english)]
+            )
+        else:
+            st.warning("No vocabulary found matching your search")
+        
+        # Add option to add new words (simple version)
+        st.markdown("---")
+        st.subheader("Add New Vocabulary")
+        
+        with st.form("add_vocab_form"):
+            english = st.text_input("English term", key="english_term")
+            italian = st.text_input("Italian translation", key="italian_translation")
+            
+            if st.form_submit_button("Add to vocabulary"):
+                if english and italian:
+                    new_word = VocabularyWord(english=english.strip(), italian=italian.strip())
+                    if DataManager.save_vocabulary(new_word):
+                        st.success(f"Added: {english} → {italian}")
+                        st.rerun()
+                    else:
+                        st.error("Failed to save vocabulary")
+                else:
+                    st.warning("Please enter both English and Italian terms")
+
 # --- Main App ---
 def main():
     # Set app title and background
