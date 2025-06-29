@@ -252,13 +252,26 @@ Best regards,
         with st.expander("📊 Detailed Email Analysis", expanded=True):
             # Basic metrics
             word_count = len(response.split())
-            sentence_count = len([s for s in response.split('.') if len(s.strip()) > 0])
+            sentence_count = len([s for s in re.split(r'[.!?]', response) if len(s.strip()) > 0])
             paragraph_count = len([p for p in response.split('\n\n') if len(p.strip()) > 0])
             
             col1, col2, col3 = st.columns(3)
             col1.metric("Word Count", word_count)
             col2.metric("Sentences", sentence_count)
             col3.metric("Paragraphs", paragraph_count)
+            
+            # Grammar and punctuation analysis
+            st.subheader("Grammar & Punctuation")
+            grammar_issues = EmailPractice._check_grammar(response)
+            
+            if grammar_issues:
+                for issue_type, issues in grammar_issues.items():
+                    if issues:
+                        st.error(f"❌ {issue_type}:")
+                        for issue in issues[:5]:  # Limit to 5 examples per issue type
+                            st.text(f"- {issue}")
+            else:
+                st.success("✅ No major grammar or punctuation issues found!")
             
             # Structure analysis
             st.subheader("Structure Analysis")
@@ -280,13 +293,13 @@ Best regards,
                 else:
                     st.error(f"❌ {element}: {feedback}")
             
-            # Grammar and style suggestions
-            st.subheader("Language & Style Suggestions")
+            # Style suggestions
+            st.subheader("Style Suggestions")
             
             # Check for common mistakes
             common_mistakes = {
                 "Passive voice": ["was done", "were given", "is being", "has been"],
-                "Long sentences": [s for s in response.split('.') if len(s.split()) > 25],
+                "Long sentences (>25 words)": [s for s in re.split(r'[.!?]', response) if len(s.split()) > 25],
                 "Complex words": ["utilize", "endeavor", "fabricate", "elucidate"],
                 "Contractions": ["don't", "can't", "won't", "isn't"],
                 "Weak phrases": ["I think", "just", "maybe", "perhaps", "a bit"]
@@ -296,7 +309,7 @@ Best regards,
                 found = False
                 details = []
                 
-                if mistake_type == "Long sentences":
+                if "Long sentences" in mistake_type:
                     for i, sentence in enumerate(indicators):
                         if sentence.strip():
                             details.append(f"Sentence {i+1}: '{sentence.strip()[:50]}...'")
@@ -309,7 +322,7 @@ Best regards,
                 
                 if found:
                     st.warning(f"⚠️ {mistake_type}:")
-                    for detail in details:
+                    for detail in details[:5]:  # Limit to 5 examples
                         st.text(detail)
             
             # Generate highlighted text with mistakes
@@ -319,12 +332,13 @@ Best regards,
             st.markdown("""
             **Color Legend:**
             - <span style="background-color: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;">Green</span> = Good elements (greetings, closings, polite phrases)
-            - <span style="background-color: #FF5252; color: white; padding: 2px 5px; border-radius: 3px;">Red</span> = Informal language to avoid
+            - <span style="background-color: #FF5252; color: white; padding: 2px 5px; border-radius: 3px;">Red</span> = Errors (grammar, punctuation, informal)
             - <span style="background-color: #FF9800; color: white; padding: 2px 5px; border-radius: 3px;">Orange</span> = Weak phrases that could be stronger
             - <span style="background-color: #9C27B0; color: white; padding: 2px 5px; border-radius: 3px;">Purple</span> = Complex words that could be simplified
             - <span style="background-color: #2196F3; color: white; padding: 2px 5px; border-radius: 3px;">Blue</span> = Contractions (avoid in formal emails)
             - <span style="background-color: #FFC107; color: black; padding: 2px 5px; border-radius: 3px;">Yellow</span> = Hesitant language
             - <span style="background-color: #00BCD4; color: white; padding: 2px 5px; border-radius: 3px;">Teal</span> = Scenario keywords
+            - <span style="background-color: #FF4081; color: white; padding: 2px 5px; border-radius: 3px;">Pink</span> = Grammar/punctuation errors
             """, unsafe_allow_html=True)
             
             highlighted_html = EmailPractice._highlight_text(response, scenario)
@@ -334,15 +348,61 @@ Best regards,
             EmailPractice._generate_analysis_image(response, scenario)
 
     @staticmethod
+    def _check_grammar(text: str) -> Dict[str, List[str]]:
+        """Check for common grammar and punctuation errors."""
+        issues = {
+            "Missing capital letters": [],
+            "Missing punctuation": [],
+            "Double spaces": [],
+            "Missing space after punctuation": []
+        }
+        
+        # Check sentences for proper capitalization
+        sentences = re.split(r'[.!?]', text)
+        for i, sentence in enumerate(sentences):
+            stripped = sentence.strip()
+            if stripped and stripped[0].islower() and i > 0:  # Skip first "sentence" which might be incomplete
+                prev_char = text[:text.find(stripped)][-1] if text.find(stripped) > 0 else ''
+                if prev_char in ['.', '!', '?']:  # Only flag if previous char was sentence end
+                    issues["Missing capital letters"].append(f"Sentence: '{stripped[:50]}...'")
+        
+        # Check for missing punctuation at end of paragraphs
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        for para in paragraphs:
+            if para[-1] not in ['.', '!', '?']:
+                issues["Missing punctuation"].append(f"Paragraph: '{para[:50]}...'")
+        
+        # Check for double spaces
+        double_spaces = re.finditer(r' {2,}', text)
+        for match in double_spaces:
+            issues["Double spaces"].append(f"Position {match.start()}: '{text[max(0, match.start()-10):match.end()+10]}'")
+        
+        # Check for missing space after punctuation
+        missing_spaces = re.finditer(r'[.,!?][a-zA-Z]', text)
+        for match in missing_spaces:
+            issues["Missing space after punctuation"].append(f"Position {match.start()}: '{text[max(0, match.start()-10):match.end()+10]}'")
+        
+        # Remove empty issue categories
+        return {k: v for k, v in issues.items() if v}
+
+    @staticmethod
     def _highlight_text(text: str, scenario: EmailScenario) -> str:
         """Highlight different parts of the email text with color coding."""
         # Define color coding for different issues
         highlight_rules = [
-            (r"\b(dear)\b", "#4CAF50", "Greeting"),  # Green for good
+            # Good elements (green)
+            (r"\b(dear)\b", "#4CAF50", "Greeting"),
             (r"\b(regards|sincerely|best|cheers|cordially)\b", "#4CAF50", "Closing"),
             (r"\b(please|thank you|appreciate|grateful)\b", "#4CAF50", "Polite"),
-            (r"\b(hey|hi|what's up|lol)\b", "#FF5252", "Informal"),  # Red for bad
-            (r"\b(just|maybe|perhaps|a bit)\b", "#FF9800", "Weak phrase"),  # Orange
+            
+            # Grammar errors (pink)
+            (r'(?<=[.!?] )([a-z])', "#FF4081", "Capitalization error"),
+            (r' {2,}', "#FF4081", "Double space"),
+            (r'(?<=[.,!?])([a-zA-Z])', "#FF4081", "Missing space"),
+            
+            # Style issues
+            (r"\b(hey|hi|what's up|lol)\b", "#FF5252", "Informal"),
+            (r"\b(just|maybe|perhaps|a bit)\b", "#FF9800", "Weak phrase"),
             (r"\b(utilize|endeavor|fabricate|elucidate)\b", "#9C27B0", "Complex word"),
             (r"\b(don't|can't|won't|isn't)\b", "#2196F3", "Contraction"),
             (r"\b(I think|I believe|in my opinion)\b", "#FFC107", "Hesitation")
@@ -356,12 +416,24 @@ Best regards,
         # Apply highlighting
         highlighted = text
         for pattern, color, title in highlight_rules:
-            highlighted = re.sub(
-                pattern, 
-                f'<span style="background-color: {color}; border-radius: 3px; padding: 0 2px;" title="{title}">\\1</span>', 
-                highlighted, 
-                flags=re.IGNORECASE
-            )
+            try:
+                highlighted = re.sub(
+                    pattern, 
+                    f'<span style="background-color: {color}; border-radius: 3px; padding: 0 2px;" title="{title}">\\1</span>', 
+                    highlighted, 
+                    flags=re.IGNORECASE
+                )
+            except:
+                continue
+        
+        # Highlight sentences missing punctuation at end (special handling)
+        paragraphs = highlighted.split('\n\n')
+        for i, para in enumerate(paragraphs):
+            stripped = para.strip()
+            if stripped and stripped[-1] not in ['.', '!', '?', '"', "'"]:
+                paragraphs[i] = f'{para}<span style="background-color: #FF4081; border-radius: 3px; padding: 0 2px;" title="Missing punctuation">⨉</span>'
+        
+        highlighted = '\n\n'.join(paragraphs)
         
         return f'<div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">{highlighted}</div>'
 
@@ -383,7 +455,7 @@ Best regards,
         d.text((50, 50), f"Email Analysis: {scenario.scenario}", font=title_font, fill=(0, 0, 0))
         
         # Add watermark
-        d.text((600, 1150), "www.learnwithedward.com", font=font, fill=(200, 200, 200))
+        d.text((600, 1150), "www.learnwithedward.com""https://preply.in/KAWANGO4EN1470659", font=font, fill=(200, 200, 200))
         
         # Add analysis content
         y_position = 100
@@ -394,7 +466,7 @@ Best regards,
             "Analysis Summary:",
             f"- Scenario: {scenario.scenario}",
             f"- Word Count: {len(text.split())}",
-            f"- Sentences: {len([s for s in text.split('.') if len(s.strip()) > 0])}",
+            f"- Sentences: {len([s for s in re.split(r'[.!?]', text) if len(s.strip()) > 0])}",
             "",
             "Key Recommendations:",
             "1. Use clear, concise language",
@@ -495,6 +567,7 @@ def main():
     st.sidebar.markdown("### Learn With Edward")
     st.sidebar.markdown("Improve your business communication skills")
     st.sidebar.markdown("[www.learnwithedward.com](https://www.learnwithedward.com)")
+    st.sidebar.markdown("[BOOK A LESSON](https://preply.in/KAWANGO4EN1470659")
     
     # Page routing
     if menu == "📧 Email Practice":
