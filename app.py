@@ -347,14 +347,16 @@ Best regards,
             # Download button for analysis
             EmailPractice._generate_analysis_image(response, scenario)
 
-    @staticmethod
+        @staticmethod
     def _check_grammar(text: str) -> Dict[str, List[str]]:
         """Check for common grammar and punctuation errors."""
         issues = {
             "Missing capital letters": [],
             "Missing punctuation": [],
             "Double spaces": [],
-            "Missing space after punctuation": []
+            "Missing space after punctuation": [],
+            "Lowercase 'I' as pronoun": [],
+            "Unmatched brackets/parentheses": []
         }
         
         # Check sentences for proper capitalization
@@ -369,7 +371,7 @@ Best regards,
         # Check for missing punctuation at end of paragraphs
         paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
         for para in paragraphs:
-            if para[-1] not in ['.', '!', '?']:
+            if para[-1] not in ['.', '!', '?'] and not para.endswith(')') and not para.endswith('"'):
                 issues["Missing punctuation"].append(f"Paragraph: '{para[:50]}...'")
         
         # Check for double spaces
@@ -381,6 +383,36 @@ Best regards,
         missing_spaces = re.finditer(r'[.,!?][a-zA-Z]', text)
         for match in missing_spaces:
             issues["Missing space after punctuation"].append(f"Position {match.start()}: '{text[max(0, match.start()-10):match.end()+10]}'")
+        
+        # Check for lowercase 'i' as pronoun
+        lowercase_i = re.finditer(r'(^|\W)i(\W|$)', text)
+        for match in lowercase_i:
+            if match.group() == 'i ' or match.group() == ' i ' or match.group() == ' i':
+                issues["Lowercase 'I' as pronoun"].append(f"Position {match.start()}: '{text[max(0, match.start()-10):match.end()+10]}'")
+        
+        # Check for unmatched brackets/parentheses
+        stack = []
+        bracket_positions = []
+        for i, char in enumerate(text):
+            if char in ['(', '{', '[']:
+                stack.append((char, i))
+            elif char in [')', '}', ']']:
+                if not stack:
+                    bracket_positions.append((i, 'unmatched closing'))
+                else:
+                    last_open, pos = stack.pop()
+                    if (last_open == '(' and char != ')') or \
+                       (last_open == '{' and char != '}') or \
+                       (last_open == '[' and char != ']'):
+                        bracket_positions.append((pos, 'mismatched'))
+        
+        for pos, problem in stack:
+            bracket_positions.append((pos, 'unmatched opening'))
+        
+        for pos, problem in bracket_positions:
+            issues["Unmatched brackets/parentheses"].append(
+                f"Position {pos}: '{text[max(0, pos-10):pos+10]}' ({problem})"
+            )
         
         # Remove empty issue categories
         return {k: v for k, v in issues.items() if v}
@@ -399,6 +431,10 @@ Best regards,
             (r'(?<=[.!?] )([a-z])', "#FF4081", "Capitalization error"),
             (r' {2,}', "#FF4081", "Double space"),
             (r'(?<=[.,!?])([a-zA-Z])', "#FF4081", "Missing space"),
+            (r'(^|\W)i(\W|$)', "#FF4081", "Lowercase 'I' pronoun"),
+            
+            # Bracket/parenthesis issues (dark pink)
+            (r'[(){}\[\]]', "#E91E63", "Bracket/parenthesis"),
             
             # Style issues
             (r"\b(hey|hi|what's up|lol)\b", "#FF5252", "Informal"),
@@ -407,6 +443,35 @@ Best regards,
             (r"\b(don't|can't|won't|isn't)\b", "#2196F3", "Contraction"),
             (r"\b(I think|I believe|in my opinion)\b", "#FFC107", "Hesitation")
         ]
+        
+        # Add scenario-specific keywords
+        for word in scenario.prompt.lower().split() + scenario.context.lower().split():
+            if len(word) > 4:  # Avoid short words
+                highlight_rules.append((fr"\b({word})\b", "#00BCD4", "Scenario keyword"))
+        
+        # Apply highlighting
+        highlighted = text
+        for pattern, color, title in highlight_rules:
+            try:
+                highlighted = re.sub(
+                    pattern, 
+                    f'<span style="background-color: {color}; border-radius: 3px; padding: 0 2px;" title="{title}">\\1</span>', 
+                    highlighted, 
+                    flags=re.IGNORECASE
+                )
+            except:
+                continue
+        
+        # Highlight sentences missing punctuation at end (special handling)
+        paragraphs = highlighted.split('\n\n')
+        for i, para in enumerate(paragraphs):
+            stripped = para.strip()
+            if stripped and stripped[-1] not in ['.', '!', '?', '"', "'", ')']:
+                paragraphs[i] = f'{para}<span style="background-color: #FF4081; border-radius: 3px; padding: 0 2px;" title="Missing punctuation">⨉</span>'
+        
+        highlighted = '\n\n'.join(paragraphs)
+        
+        return f'<div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">{highlighted}</div>'
         
         # Add scenario-specific keywords
         for word in scenario.prompt.lower().split() + scenario.context.lower().split():
