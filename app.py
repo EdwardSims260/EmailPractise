@@ -347,7 +347,7 @@ Best regards,
             # Download button for analysis
             EmailPractice._generate_analysis_image(response, scenario)
 
-        @staticmethod
+    @staticmethod
     def _check_grammar(text: str) -> Dict[str, List[str]]:
         """Check for common grammar and punctuation errors."""
         issues = {
